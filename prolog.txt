@@ -22,9 +22,8 @@ father(walter, supriya).
 
 % Rules for sibling
 sibling(X, Y) :-
-mother(M, X), mother(M, Y), X \= Y.
-sibling(X, Y) :-
-father(F, X), father(F, Y), X \= Y.
+(mother(M, X), mother(M, Y); father(F, X), father(F, Y)),
+X \= Y.
 % Rules for grandfather
 grandfather(GF, Grandchild) :-
 father(F, Grandchild),
@@ -33,11 +32,18 @@ father(GF, F).
 grandmother(GM, Grandchild) :-
 mother(M, Grandchild),
 mother(GM, M).
-% Rule for father (checking if X is a father of Y)
-father(X, Y) :-
-male(X),
-father(X, Y).
-% Rule for mother (checking if X is a mother of Y)
-mother(X, Y) :-
-female(X),
-mother(X, Y).
+% Cousins are the children of siblings
+cousin(X, Y) :-
+sibling(S, T), % Sibling relationship between S and T
+(mother(S, X); father(S, X)), % S is a parent of X
+(mother(T, Y); father(T, Y)). % T is a parent of Y
+% An uncle is a male sibling of one&#39;s parent
+uncle(X, Y) :-
+(mother(P, Y); father(P, Y)), % P is a parent of Y
+sibling(X, P), % X is a sibling of P
+male(X). % X must be male (uncle)
+% An aunt is a female sibling of one&#39;s parent
+aunt(X, Y) :-
+(mother(P, Y); father(P, Y)), % P is a parent of Y
+sibling(X, P), % X is a sibling of P
+female(X). % X must be female (aunt)
