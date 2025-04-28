@@ -1,109 +1,92 @@
-class BlockWorldPlanner:
-    def __init__(self, initial_state, goal_state):
-        self.initial_state = initial_state
-        self.goal_state = goal_state
-        self.plan = []
+# Define Events
 
-    def print_state(self, state):
-        stacks = self.get_stacks(state)
-        max_height = max(len(s) for s in stacks)
-        print("\nCurrent State:")
-        for level in range(max_height - 1, -1, -1):
-            row = ""
-            for stack in stacks:
-                if level < len(stack):
-                    row += f"  {stack[level]}  "
-                else:
-                    row += "     "
-            print(row)
-        print("-" * (5 * len(stacks)))
+events = ["Burglary", "Earthquake", "Alarm", "JohnCalls", "MaryCalls"]
+print("\nEvents in the network:", events)
 
-    def get_stacks(self, state):
-        above = {}
-        for block, pos in state.items():
-            if pos != "Table":
-                above.setdefault(pos, []).append(block)
+# Store Conditional Probability Tables (CPTs)
+prob_burglary = {"True": 0.001, "False": 0.999}
+prob_earthquake = {"True": 0.002, "False": 0.998}
+prob_alarm = {
+    ("True", "True"): {"True": 0.95, "False": 0.05},
+    ("True", "False"): {"True": 0.94, "False": 0.06},
+    ("False", "True"): {"True": 0.29, "False": 0.71},
+    ("False", "False"): {"True": 0.001, "False": 0.999}
+}
 
-        roots = [b for b, p in state.items() if p == "Table"]
-        stacks = []
-        for root in roots:
-            stack = [root]
-            current = root
-            while current in above:
-                current = above[current][0]
-                stack.append(current)
-            stacks.append(stack)
-        return stacks
+prob_john_calls = {
+    "True": {"True": 0.90, "False": 0.10},
+    "False": {"True": 0.05, "False": 0.95}
+}
 
-    def is_clear(self, block, state):
-        return all(v != block for v in state.values())
+prob_mary_calls = {
+    "True": {"True": 0.70, "False": 0.30},
+    "False": {"True": 0.01, "False": 0.99}
+}
 
-    def move_block(self, block, destination, state, step_count):
-        if not self.is_clear(block, state):
-            top = next(k for k, v in state.items() if v == block)
-            print(f"\nStep {step_count}: Move {top} from {block} to Table")
-            self.plan.append(f"Step {step_count}: Move {top} from {block} to Table")
-            state[top] = "Table"
-            self.print_state(state)
-            step_count += 1
-            step_count = self.move_block(block, destination, state, step_count)
-        if state[block] != destination:
-            print(f"\nStep {step_count}: Move {block} to {destination}")
-            self.plan.append(f"Step {step_count}: Move {block} to {destination}")
-            state[block] = destination
-            self.print_state(state)
-            step_count += 1
-        return step_count
+cpts = {
+    "Burglary": prob_burglary,
+    "Earthquake": prob_earthquake,
+    "Alarm": prob_alarm,
+    "JohnCalls": prob_john_calls,
+    "MaryCalls": prob_mary_calls,
+}
 
-    def generate_plan(self):
-        print("\nInitial Configuration:")
-        self.print_state(self.initial_state)
-        state = self.initial_state.copy()
-        step = 1
+print("\nConditional Probability Tables (CPTs):")
+for event, cpt in cpts.items():
+    print(f"\nCPT for {event}:")
+    print(cpt)
 
-        # Build goal stack from bottom to top
-        goal_stack = []
-        bottom = next(b for b, p in self.goal_state.items() if p == "Table")
-        goal_stack.append(bottom)
-        while True:
-            next_block = next((b for b, p in self.goal_state.items() if p == bottom), None)
-            if not next_block:
-                break
-            goal_stack.append(next_block)
-            bottom = next_block
+# Function to calculate full joint probability
+def calculate_joint_probability(b, e, a, j, m):
+    p_b = cpts["Burglary"][str(b)]
+    p_e = cpts["Earthquake"][str(e)]
+    p_a_given_be = cpts["Alarm"][(str(b), str(e))][str(a)]
+    p_j_given_a = cpts["JohnCalls"][str(a)][str(j)]
+    p_m_given_a = cpts["MaryCalls"][str(a)][str(m)]
+    return p_m_given_a * p_j_given_a * p_a_given_be * p_e * p_b
 
-        for i in range(len(goal_stack)):
-            block = goal_stack[i]
-            destination = self.goal_state[block]
-            step = self.move_block(block, destination, state, step)
+# Query processor
+def query_joint_distribution(query):
+    if not all(event in query for event in events):
+        print("Error: Query must specify the state for all events.")
+        return None
 
-        print("\nGoal state achieved!")
+    b = query["Burglary"]
+    e = query["Earthquake"]
+    a = query["Alarm"]
+    j = query["JohnCalls"]
+    m = query["MaryCalls"]
+    return calculate_joint_probability(b, e, a, j, m)
 
-    def display_plan(self):
-        print("\nFinal Plan:")
-        for step in self.plan:
-            print(step)
+# Query a
+query_a = {
+    "Burglary": False,
+    "Earthquake": False,
+    "Alarm": True,
+    "JohnCalls": True,
+    "MaryCalls": True
+}
+probability_a = query_joint_distribution(query_a)
 
+print("\n--- Query Results ---")
+print(f"Probability (A=True, B=False, E=False, J=True, M=True): {probability_a:.8f}")
 
-# ------------------------------
-# Take user input
-# ------------------------------
-initial_state = {}
-goal_state = {}
+# Additional Queries
+query_1 = {"Burglary": True, "Earthquake": True, "Alarm": True, "JohnCalls": True, "MaryCalls": True}
+query_2 = {"Burglary": False, "Earthquake": False, "Alarm": False, "JohnCalls": False, "MaryCalls": False}
+query_3 = {"Burglary": True, "Earthquake": False, "Alarm": True, "JohnCalls": False, "MaryCalls": True}
+query_4 = {"Burglary": False, "Earthquake": True, "Alarm": False, "JohnCalls": True, "MaryCalls": False}
+query_5 = {"Burglary": False, "Earthquake": False, "Alarm": True, "JohnCalls": False, "MaryCalls": False}
 
-num = int(input("Enter number of blocks: "))
-print("Enter initial state (format: Block Position):")
-for _ in range(num):
-    block, pos = input().split()
-    initial_state[block] = pos
+probability_1 = query_joint_distribution(query_1)
+probability_2 = query_joint_distribution(query_2)
+probability_3 = query_joint_distribution(query_3)
+probability_4 = query_joint_distribution(query_4)
+probability_5 = query_joint_distribution(query_5)
 
-print("Enter goal state (format: Block Position):")
-for _ in range(num):
-    block, pos = input().split()
-    goal_state[block] = pos
-
-# Execute
-planner = BlockWorldPlanner(initial_state, goal_state)
-planner.generate_plan()
-planner.display_plan()
+print(f"Probability (B=True, E=True, A=True, J=True, M=True): {probability_1:.8f}")
+print(f"Probability (B=False, E=False, A=False, J=False, M=False): {probability_2:.8f}")
+print(f"Probability (B=True, E=False, A=True, J=False, M=True): {probability_3:.8f}")
+print(f"Probability (B=False, E=True, A=False, J=True, M=False): {probability_4:.8f}")
+print(f"Probability (B=False, E=False, A=True, J=False, M=False): {probability_5:.8f}")
 
